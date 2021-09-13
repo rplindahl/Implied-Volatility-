@@ -1,0 +1,70 @@
+Function BlackScholesCall(S As Double, K As Double, sigma As Double, r As Double, T As Double) As Double
+    Dim d1 As Double
+    Dim d2 As Double
+    d1 = (Log(S / K) + (r + sigma ^ 2 / 2) * T) / (sigma * Sqr(T))
+    d2 = (Log(S / K) + (r - sigma ^ 2 / 2) * T) / (sigma * Sqr(T))
+    
+    BlackScholesCall = S * Application.WorksheetFunction.NormSDist(d1) - K * Exp(-r * T) * Application.WorksheetFunction.NormSDist(d2)
+End Function
+
+
+Function BlackScholesPut(S As Double, K As Double, sigma As Double, r As Double, T As Double) As Double
+    Dim d1 As Double
+    Dim d2 As Double
+    d1 = (Log(S / K) + (r + sigma ^ 2 / 2) * T) / (sigma * Sqr(T))
+    d2 = (Log(S / K) + (r - sigma ^ 2 / 2) * T) / (sigma * Sqr(T))
+    
+    BlackScholesPut = K * Exp(-r * T) * Application.WorksheetFunction.NormSDist(-d2) - S * Application.WorksheetFunction.NormSDist(-d1)
+End Function
+
+
+Function BlackScholes(S As Double, K As Double, sigma As Double, r As Double, T As Double, _
+                    oType As Variant) As Double
+    Dim d1 As Double
+    Dim d2 As Double
+    d1 = (Log(S / K) + (r + sigma ^ 2 / 2) * T) / (sigma * Sqr(T))
+    d2 = (Log(S / K) + (r - sigma ^ 2 / 2) * T) / (sigma * Sqr(T))
+
+    If (oType = "C-EU" Or oType = "C-AM") Then
+        BlackScholes = BlackScholesCall(S, K, sigma, r, T)
+        'BlackScholesCall = S * Application.WorksheetFunction.NormSDist(d1) - K * Exp(-r * T) * Application.WorksheetFunction.NormSDist(d2)
+    ElseIf (oType = "P-EU" Or oType = "P-AM") Then
+        BlackScholes = BlackScholesPut(S, K, sigma, r, T)
+        'BlackScholesPut = K * Exp(-r * T) * Application.WorksheetFunction.NormSDist(-d2) - S * Application.WorksheetFunction.NormSDist(-d1)
+    Else
+        BlackScholes = CVErr(xlErrName)
+    End If
+End Function
+
+Function implied_volatility(S As Double, K As Double, sigma_upper As Double, sigma_lower As Double, r As Double, T As Double, oType As Variant, market_price As Double) As Double
+    Dim sigma_mean As Double
+    Dim call_price As Double
+    Dim upper_i As Integer
+    Dim i As Integer
+    Dim vol_up As Double
+    Dim vol_down As Double
+    
+    upper_i = 100
+    i = 1
+    sigma_mean = (sigma_upper + sigma_lower) / 2
+    vol_up = sigma_upper
+    vol_down = sigma_lower
+    
+    
+    Do
+        call_price = BlackScholes(S, K, sigma_mean, r, T, oType)
+        If (call_price > market_price) Then
+            vol_up = sigma_mean
+            sigma_lower = vol_down
+            sigma_mean = (vol_up + sigma_lower) / 2
+        Else
+            vol_down = sigma_mean
+            sigma_upper = vol_up
+            sigma_mean = (sigma_upper + vol_down) / 2
+        End If
+        i = i + 1
+    Loop While (i < upper_i)
+    implied_volatility = sigma_mean
+    
+End Function
+
