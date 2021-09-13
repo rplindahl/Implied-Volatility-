@@ -36,7 +36,7 @@ Function BlackScholes(S As Double, K As Double, sigma As Double, r As Double, T 
     End If
 End Function
 
-Function implied_volatility(S As Double, K As Double, sigma_upper As Double, sigma_lower As Double, r As Double, T As Double, oType As Variant, market_price As Double) As Double
+Function implicit_volatility(S As Double, K As Double, sigma_upper As Double, sigma_lower As Double, r As Double, T As Double, oType As Variant, market_price As Double) As Double
     Dim sigma_mean As Double
     Dim call_price As Double
     Dim upper_i As Integer
@@ -64,7 +64,37 @@ Function implied_volatility(S As Double, K As Double, sigma_upper As Double, sig
         End If
         i = i + 1
     Loop While (i < upper_i)
-    implied_volatility = sigma_mean
+    implicit_volatility = sigma_mean
     
 End Function
 
+# Tidier function than above
+
+Function implicit_volatility2(S As Double, K As Double, r As Double, T As Double, oType As Variant, market_price As Double) As Double
+    Dim sigma_mean As Double
+    Dim sigma_upper As Double
+    Dim sigma_lower As Double
+    Dim call_price As Double
+    Dim upper_i As Integer
+    Dim i As Integer
+    
+    upper_i = 100
+    i = 1
+    sigma_upper = 10
+    sigma_lower = 0
+    sigma_mean = (sigma_upper + sigma_lower) / 2
+    
+    Do
+        call_price = BlackScholes(S, K, sigma_mean, r, T, oType)
+        If (call_price > market_price) Then
+            sigma_upper = sigma_mean
+            sigma_mean = (sigma_upper + sigma_lower) / 2
+        Else
+            sigma_lower = sigma_mean
+            sigma_mean = (sigma_upper + sigma_lower) / 2
+        End If
+        i = i + 1
+    Loop While (i < upper_i)
+    implicit_volatility2 = sigma_mean
+    
+End Function
