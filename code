@@ -1,24 +1,25 @@
-Function BlackScholesCall(S As Double, K As Double, sigma As Double, r As Double, T As Double) As Double
+
+Function BlackScholesCall(S As Double, K As Double, sigma As Double, q As Double, r As Double, T As Double) As Double
     Dim d1 As Double
     Dim d2 As Double
     d1 = (Log(S / K) + (r + sigma ^ 2 / 2) * T) / (sigma * Sqr(T))
     d2 = (Log(S / K) + (r - sigma ^ 2 / 2) * T) / (sigma * Sqr(T))
     
-    BlackScholesCall = S * Application.WorksheetFunction.NormSDist(d1) - K * Exp(-r * T) * Application.WorksheetFunction.NormSDist(d2)
+    BlackScholesCall = S * Exp(-q * T) * Application.WorksheetFunction.NormSDist(d1) - K * Exp(-r * T) * Application.WorksheetFunction.NormSDist(d2)
 End Function
 
 
-Function BlackScholesPut(S As Double, K As Double, sigma As Double, r As Double, T As Double) As Double
+Function BlackScholesPut(S As Double, K As Double, sigma As Double, q As Double, r As Double, T As Double) As Double
     Dim d1 As Double
     Dim d2 As Double
     d1 = (Log(S / K) + (r + sigma ^ 2 / 2) * T) / (sigma * Sqr(T))
     d2 = (Log(S / K) + (r - sigma ^ 2 / 2) * T) / (sigma * Sqr(T))
     
-    BlackScholesPut = K * Exp(-r * T) * Application.WorksheetFunction.NormSDist(-d2) - S * Application.WorksheetFunction.NormSDist(-d1)
+    BlackScholesPut = K * Exp(-r * T) * Application.WorksheetFunction.NormSDist(-d2) - S * Exp(-q * T) * Application.WorksheetFunction.NormSDist(-d1)
 End Function
 
 
-Function BlackScholes(S As Double, K As Double, sigma As Double, r As Double, T As Double, _
+Function BlackScholes(S As Double, K As Double, sigma As Double, q As Double, r As Double, T As Double, _
                     oType As Variant) As Double
     Dim d1 As Double
     Dim d2 As Double
@@ -26,17 +27,25 @@ Function BlackScholes(S As Double, K As Double, sigma As Double, r As Double, T 
     d2 = (Log(S / K) + (r - sigma ^ 2 / 2) * T) / (sigma * Sqr(T))
 
     If (oType = "C-EU" Or oType = "C-AM") Then
-        BlackScholes = BlackScholesCall(S, K, sigma, r, T)
-        'BlackScholesCall = S * Application.WorksheetFunction.NormSDist(d1) - K * Exp(-r * T) * Application.WorksheetFunction.NormSDist(d2)
+        BlackScholes = BlackScholesCall(S, K, sigma, q, r, T)
+        'BlackScholesCall = S * Exp(-q * T) * Application.WorksheetFunction.NormSDist(d1) - K * Exp(-r * T) * Application.WorksheetFunction.NormSDist(d2)
     ElseIf (oType = "P-EU" Or oType = "P-AM") Then
-        BlackScholes = BlackScholesPut(S, K, sigma, r, T)
-        'BlackScholesPut = K * Exp(-r * T) * Application.WorksheetFunction.NormSDist(-d2) - S * Application.WorksheetFunction.NormSDist(-d1)
+        BlackScholes = BlackScholesPut(S, K, sigma, q, r, T)
+        'BlackScholesPut = K * Exp(-r * T) * Application.WorksheetFunction.NormSDist(-d2) - S * Exp(-q * T) * Application.WorksheetFunction.NormSDist(-d1)
     Else
         BlackScholes = CVErr(xlErrName)
     End If
 End Function
 
-Function implicit_volatility(S As Double, K As Double, sigma_upper As Double, sigma_lower As Double, r As Double, T As Double, oType As Variant, market_price As Double) As Double
+
+Function my_forward_rate(y1 As Double, y2 As Double, t1 As Double, t2 As Double) As Double
+
+    'my_foward_rate = ((1 + y1) ^ t1 / (1 + y2)) ^ (1 / (t1 - t2)) - 1
+
+End Function
+
+
+Function implied_volatility(S As Double, K As Double, sigma_upper As Double, sigma_lower As Double, q As Double, r As Double, T As Double, oType As Variant, market_price As Double) As Double
     Dim sigma_mean As Double
     Dim call_price As Double
     Dim upper_i As Integer
@@ -52,7 +61,7 @@ Function implicit_volatility(S As Double, K As Double, sigma_upper As Double, si
     
     
     Do
-        call_price = BlackScholes(S, K, sigma_mean, r, T, oType)
+        call_price = BlackScholes(S, K, sigma_mean, q, r, T, oType)
         If (call_price > market_price) Then
             vol_up = sigma_mean
             sigma_lower = vol_down
@@ -64,37 +73,41 @@ Function implicit_volatility(S As Double, K As Double, sigma_upper As Double, si
         End If
         i = i + 1
     Loop While (i < upper_i)
-    implicit_volatility = sigma_mean
+    impleid_volatility = sigma_mean
     
 End Function
 
-# Tidier function than above
 
-Function implicit_volatility2(S As Double, K As Double, r As Double, T As Double, oType As Variant, market_price As Double) As Double
-    Dim sigma_mean As Double
+
+'Parametrarna som funktionen kräver är relevanta parametrar för Black & Scholes samt marknadspriset för optionen.
+Function implied_volatility2(S As Double, K As Double, q As Double, r As Double, T As Double, oType As Variant, market_price As Double) As Double
+    Dim sigma_mean As Double    'Definierar relevanta variabler som funktionen behöver
     Dim sigma_upper As Double
     Dim sigma_lower As Double
     Dim call_price As Double
     Dim upper_i As Integer
     Dim i As Integer
     
-    upper_i = 100
-    i = 1
-    sigma_upper = 10
+    upper_i = 100               'Bestämmer att loopen nedan körs i 100 iterationer. Från manuella tester är detta mer än tillräckligt
+    i = 1                       'för att hitta en stabil IV
+    sigma_upper = 10            'Upper och lower bound för volatiliten sätts till en början på 1000% respektive 0%. För att vara på säkra sidan
     sigma_lower = 0
     sigma_mean = (sigma_upper + sigma_lower) / 2
     
     Do
-        call_price = BlackScholes(S, K, sigma_mean, r, T, oType)
-        If (call_price > market_price) Then
-            sigma_upper = sigma_mean
-            sigma_mean = (sigma_upper + sigma_lower) / 2
-        Else
-            sigma_lower = sigma_mean
-            sigma_mean = (sigma_upper + sigma_lower) / 2
+        call_price = BlackScholes(S, K, sigma_mean, q, r, T, oType)     'Loopen börjar med att beräkna B&S
+        If (call_price > market_price) Then                             'Om B&S-priset är över marknadspriset så körs koden nedan
+            sigma_upper = sigma_mean                                    'Upper bound sätts till gamla mean
+            sigma_mean = (sigma_upper + sigma_lower) / 2                'Ny mean beräknas med den nya upper bound och gamla lower bound
+        Else                                                            'Om B&S-priset är lägre än marknadspris
+            sigma_lower = sigma_mean                                    'sätter vi istället lower bound till mean
+            sigma_mean = (sigma_upper + sigma_lower) / 2                'och ny mean beräknas med den nya värder på lower band
         End If
         i = i + 1
-    Loop While (i < upper_i)
-    implicit_volatility2 = sigma_mean
+    Loop While (i < upper_i)                                            'Loopen körs i 100 iterationer.
+    implied_volatility2 = sigma_mean                                    'Functionen sätts till det beräkanade sigma_mean efter 100 iterationer.
     
 End Function
+
+
+
